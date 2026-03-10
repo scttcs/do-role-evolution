@@ -3,7 +3,8 @@
 
   const D = window.DO_ROLE_DATA;
   const STORAGE_KEY = 'do-role-evolution-edits';
-  const VERSIONS_KEY = 'do-role-evolution-versions';
+  let _versionsCache = [];
+  let graph;
 
   /* ═══════════════════════════════════════════════
      Utilities
@@ -30,7 +31,7 @@
   }
 
   /* ═══════════════════════════════════════════════
-     Persistence (localStorage)
+     Persistence
      ═══════════════════════════════════════════════ */
 
   // ── Pending edits ──
@@ -61,12 +62,42 @@
     return Boolean(e && Object.keys(e).length);
   }
 
-  // ── Version history ──
-  function loadVersions() {
-    try { return JSON.parse(localStorage.getItem(VERSIONS_KEY)) || []; }
-    catch { return []; }
+  // ── Version history (server-backed, module-level cache) ──
+  function loadVersions() { return _versionsCache; }
+  function saveVersions(v) { _versionsCache = v; }
+
+  async function fetchVersionsFromServer() {
+    try {
+      const r = await fetch('/api/versions');
+      _versionsCache = r.ok ? await r.json() : [];
+    } catch { _versionsCache = []; }
   }
-  function saveVersions(v) { localStorage.setItem(VERSIONS_KEY, JSON.stringify(v)); }
+
+  async function pushVersionToServer(snapshot, label) {
+    const r = await fetch('/api/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ snapshot, label })
+    });
+    if (r.ok) {
+      const created = await r.json();
+      _versionsCache.push(created);
+      return created;
+    }
+  }
+
+  async function deleteAllVersionsOnServer() {
+    await fetch('/api/versions', { method: 'DELETE' });
+    _versionsCache = [];
+  }
+
+  async function refreshFromServer() {
+    await fetchVersionsFromServer();
+    renderCards();
+    applyFiltersAndHighlight();
+    renderEdges();
+    updateSyncState();
+  }
 
   function latestVersion() {
     const vs = loadVersions();
@@ -367,7 +398,7 @@
      SYNC & Version management
      ═══════════════════════════════════════════════ */
 
-  function syncAll() {
+  async function syncAll() {
     const diffs = computeAllDiffs();
     if (!diffs.length) return;
 
@@ -391,14 +422,8 @@
 
     const versions = loadVersions();
     const nextId = versions.length ? versions[versions.length - 1].id + 1 : 1;
-    versions.push({
-      id: nextId,
-      timestamp: new Date().toISOString(),
-      label: `Version ${nextId}`,
-      snapshot
-    });
+    await pushVersionToServer(snapshot, `Version ${nextId}`);
 
-    saveVersions(versions);
     clearAllOverrides();
     renderCards();
     applyFiltersAndHighlight();
@@ -406,23 +431,19 @@
     updateSyncState();
   }
 
-  function restoreVersion(versionId) {
+  async function restoreVersion(versionId) {
     const versions = loadVersions();
     const target = versions.find(v => v.id === versionId);
     if (!target) return;
 
     if (!confirm(`Restore "${target.label}"?\n\nThis will create a new version matching that snapshot. Current pending edits will be discarded.`)) return;
 
-    // Create a new version that copies the target's snapshot
-    const nextId = versions[versions.length - 1].id + 1;
-    versions.push({
-      id: nextId,
-      timestamp: new Date().toISOString(),
-      label: `Version ${nextId} (restored from ${target.label})`,
-      snapshot: JSON.parse(JSON.stringify(target.snapshot))
-    });
+    const nextId = versions.length ? versions[versions.length - 1].id + 1 : 1;
+    await pushVersionToServer(
+      JSON.parse(JSON.stringify(target.snapshot)),
+      `Version ${nextId} (restored from ${target.label})`
+    );
 
-    saveVersions(versions);
     clearAllOverrides();
     renderCards();
     applyFiltersAndHighlight();
@@ -901,12 +922,12 @@
     updateSyncState();
   }
 
-  function resetAll() {
+  async function resetAll() {
     if (loadVersions().length > 0 || Object.keys(loadEdits()).length > 0) {
       if (!confirm('Reset everything to factory defaults?\n\nThis will discard all pending edits AND all version history.')) return;
     }
     clearAllOverrides();
-    localStorage.removeItem(VERSIONS_KEY);
+    await deleteAllVersionsOnServer();
     renderCards();
     applyFiltersAndHighlight();
     renderEdges();
@@ -1037,6 +1058,9 @@
       }
     });
 
+    // ── Refresh from server ──
+    document.getElementById('refreshBtn').addEventListener('click', () => refreshFromServer());
+
     // ── Reset ──
     ui.resetBtn.addEventListener('click', resetAll);
 
@@ -1049,12 +1073,15 @@
      Init
      ═══════════════════════════════════════════════ */
 
-  const graph = buildGraph();
-  renderSkeleton();
-  renderCards();
-  renderEdges();
-  bindEvents();
-  applyFiltersAndHighlight();
-  updateSyncState();
+  (async () => {
+    graph = buildGraph();
+    await fetchVersionsFromServer();
+    renderSkeleton();
+    renderCards();
+    renderEdges();
+    bindEvents();
+    applyFiltersAndHighlight();
+    updateSyncState();
+  })();
 
 })();

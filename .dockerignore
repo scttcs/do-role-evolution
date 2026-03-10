@@ -3,3 +3,6 @@
 .gitignore
 .dockerignore
 fly.toml
+nginx.conf
+node_modules
+data

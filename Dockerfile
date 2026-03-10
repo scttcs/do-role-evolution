@@ -1,11 +1,13 @@
-FROM nginx:alpine
+FROM node:20-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY index.html /usr/share/nginx/html/
-COPY style.css /usr/share/nginx/html/
-COPY app.js /usr/share/nginx/html/
-COPY data.js /usr/share/nginx/html/
+WORKDIR /app
+
+COPY package.json ./
+RUN npm install --production
+
+COPY server.js ./
+COPY public/ ./public/
 
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server.js"]
