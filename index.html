@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DO Role Evolution</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="title-wrap">
+      <h1>DO Role Evolution</h1>
+      <p>Lens growth integrated with BD, EOR, and Delivery phase readiness. Click any text to edit in place.</p>
+    </div>
+    <div class="controls">
+      <label for="focusLens">Lens</label>
+      <select id="focusLens">
+        <option value="all">All lenses</option>
+      </select>
+      <label for="focusPhase">Phase</label>
+      <select id="focusPhase">
+        <option value="all">All phases</option>
+        <option value="BD">BD</option>
+        <option value="EOR">EOR</option>
+        <option value="Delivery">Delivery</option>
+      </select>
+      <label class="toggle-label">
+        <input id="showAllLinks" type="checkbox" checked>
+        Show all links
+      </label>
+      <label class="toggle-label">
+        <input id="showDiffs" type="checkbox">
+        Show changes
+      </label>
+      <button id="changeLogBtn" class="btn-subtle" title="Open change log">
+        Change Log <span id="changeCount" class="change-count" style="display:none"></span>
+      </button>
+      <div class="sync-group">
+        <button id="syncBtn" class="btn-sync" disabled>Sync</button>
+        <span class="sync-note">Accepts all pending changes as a new version</span>
+      </div>
+      <button id="resetAll" class="btn-subtle" title="Reset all text edits to defaults">Reset all edits</button>
+    </div>
+  </header>
+
+  <main id="graphHost">
+    <svg id="linksLayer" aria-hidden="true"></svg>
+    <section id="levels"></section>
+  </main>
+
+  <aside id="changeLog" class="changelog-panel">
+    <div class="changelog-header">
+      <strong>Change Log</strong>
+      <button id="closeChangeLog" class="btn-close-cl">&times;</button>
+    </div>
+    <div id="changeLogBody" class="changelog-body"></div>
+  </aside>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

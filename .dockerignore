@@ -1,0 +1,5 @@
+.claude
+.git
+.gitignore
+.dockerignore
+fly.toml
